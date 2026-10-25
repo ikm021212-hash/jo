@@ -30,7 +30,13 @@ jobs:
       - name: Native OCR, browser, UI and desktop checks
         env:
           SM_DATA_DIR: ${{ runner.temp }}\SmallCloset Windows test
+          SM_TEST_LOG: ${{ runner.temp }}\smallcloset-windows-checks.txt
         shell: powershell
         run: |
-          & .\scripts\windows.ps1 -Mode Test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd.exe /d /c 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\windows.ps1 -Mode Test > "%SM_TEST_LOG%" 2>&1'
+          $checkExitCode = $LASTEXITCODE
+          Get-Content -LiteralPath $env:SM_TEST_LOG -Encoding UTF8
+          @('### Windows verification output', '```text') | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          Get-Content -LiteralPath $env:SM_TEST_LOG -Encoding UTF8 -Tail 150 | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          '```' | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          exit $checkExitCode
