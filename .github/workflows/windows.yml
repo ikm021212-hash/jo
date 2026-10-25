@@ -13,7 +13,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     env:
-      SM_DATA_DIR: ${{ runner.temp }}\SmallCloset Windows test
       SM_HEADLESS: '1'
       PYTHONIOENCODING: utf-8
     steps:
@@ -22,11 +21,15 @@ jobs:
         with:
           persist-credentials: false
       - name: Install using the actual Windows batch file
+        env:
+          SM_DATA_DIR: ${{ runner.temp }}\SmallCloset Windows test
         shell: powershell
         run: |
           cmd.exe /d /c "INSTALL-WINDOWS.bat <NUL"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Native OCR, browser, UI and desktop checks
+        env:
+          SM_DATA_DIR: ${{ runner.temp }}\SmallCloset Windows test
         shell: powershell
         run: |
           & .\scripts\windows.ps1 -Mode Test
