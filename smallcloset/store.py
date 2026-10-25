@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from .domain import DEFAULT_RULES, evaluate, safe_url
@@ -37,10 +38,17 @@ class Store:
             db.execute("UPDATE queue SET state='pending' WHERE state='working'")
         self.path.chmod(0o600)
 
+    @contextmanager
     def connect(self):
         db = sqlite3.connect(self.path, timeout=15)
         db.row_factory = sqlite3.Row
-        return db
+        try:
+            # sqlite3's own context manager commits/rolls back but does not close.
+            # Windows keeps the DB/WAL locked until every handle is closed.
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def rules(self):
         with self.connect() as db:
