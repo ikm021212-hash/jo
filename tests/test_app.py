@@ -173,15 +173,10 @@ class OCRTests(unittest.TestCase):
 
     @unittest.skipUnless(ocr_available() and os.environ.get('SM_TESSDATA'),'OCR installation required')
     def test_korean_table_ocr_is_unverified_draft(self):
-        from PIL import Image,ImageDraw,ImageFont
-        candidates=['/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',str(Path(os.environ.get('WINDIR','C:/Windows'))/'Fonts/malgun.ttf')]
-        font_path=next((p for p in candidates if Path(p).exists()),None)
-        if not font_path:self.skipTest('Korean test font unavailable')
-        image=Image.new('RGB',(900,360),'white');draw=ImageDraw.Draw(image);font=ImageFont.truetype(font_path,60)
-        for y,text in [(20,'사이즈    가슴단면    총장'),(130,'S             60             67'),(240,'M            62             69')]:
-            draw.text((20,y),text,fill='black',font=font)
-        buf=io.BytesIO();image.save(buf,format='PNG')
+        # The same pixels exercise both native backends; OS-installed fonts do
+        # not silently alter the input or cause the Windows OCR test to skip.
+        content=(Path(__file__).parent/'fixtures/korean-size-table.png').read_bytes()
         with tempfile.TemporaryDirectory() as d:
-            result=read_image(buf.getvalue(),Path(d))
+            result=read_image(content,Path(d))
             self.assertIn('총장',result['text']);self.assertIn('67',result['text']);self.assertIn('69',result['text'])
             self.assertNotIn('options',result)
