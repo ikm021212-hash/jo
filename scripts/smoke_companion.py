@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 import httpx
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
@@ -60,7 +60,7 @@ async def main():
                         await popup.locator('#port').fill(str(port));await popup.locator('#category').select_option('상의')
                         await popup.locator('#confirmed').check();await product.bring_to_front()
                         await popup.locator('#capture').evaluate('(el)=>el.click()')
-                        await popup.wait_for_function("document.querySelector('#status').textContent.includes('초안을 저장')",timeout=20000)
+                        await expect(popup.locator('#status')).to_contain_text('초안을 저장',timeout=20000)
                         state=(await client.get(base+'/api/state')).json()
                         assert len(state['products'])==1
                         record=state['products'][0]
@@ -68,16 +68,16 @@ async def main():
                         assert [(o['size'],o['length_raw']) for o in record['options']]==[('S','67'),('M','69')]
                         assert 'TEST-ONLY-PRIVATE-MUST-NOT-LEAK' not in str(state)
                         await popup.locator('#capture').evaluate('(el)=>el.click()')
-                        await popup.wait_for_function("document.querySelector('#status').textContent.includes('초안을 저장')",timeout=20000)
+                        await expect(popup.locator('#status')).to_contain_text('초안을 저장',timeout=20000)
                         assert len((await client.get(base+'/api/state')).json()['products'])==1
                         # User-reported Cloudflare text: no capture/no retry.
                         await product.set_content('<title>보안 확인 수행 중</title><p>사람인지 확인하십시오</p>')
                         await product.bring_to_front();await popup.locator('#capture').evaluate('(el)=>el.click()')
-                        await popup.wait_for_function("document.querySelector('#status').textContent.includes('보안 확인')",timeout=15000)
+                        await expect(popup.locator('#status')).to_contain_text('보안 확인',timeout=15000)
                         assert len((await client.get(base+'/api/state')).json()['products'])==1
                         await product.set_content('<title>TEST LOGIN</title><input type="password" value="TEST-ONLY-PRIVATE-MUST-NOT-LEAK">')
                         await product.bring_to_front();await popup.locator('#capture').evaluate('(el)=>el.click()')
-                        await popup.wait_for_function("document.querySelector('#status').textContent.includes('로그인 화면')",timeout=15000)
+                        await expect(popup.locator('#status')).to_contain_text('로그인 화면',timeout=15000)
                         assert len((await client.get(base+'/api/state')).json()['products'])==1
                         print('PASS: real extension popup -> active page DOM -> local app; Korean table candidates; duplicate update; no cookie/hidden input leak; reported security screen and password form refused. TEST PAGES ONLY.')
                     finally:await context.close()
