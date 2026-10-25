@@ -1,0 +1,5 @@
+fastapi==0.141.1
+uvicorn==0.52.1
+playwright==1.62.0
+Pillow==12.3.0
+
