@@ -1,13 +1,18 @@
 import hashlib
+import importlib.util
 import io
 import os
 import shutil
 import subprocess
-import tempfile
+import sys
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 Image.MAX_IMAGE_PIXELS = 20_000_000
+
+
+def ocr_available():
+    return importlib.util.find_spec("tesserocr") is not None or shutil.which("tesseract") is not None
 
 
 def read_image(content: bytes, directory: Path):
@@ -15,9 +20,9 @@ def read_image(content: bytes, directory: Path):
         raise ValueError("이미지는 10MB 이하로 올려주세요.")
     try:
         with Image.open(io.BytesIO(content)) as image:
-            image.load()
             if image.width * image.height > 20_000_000:
                 raise ValueError("이미지 크기가 너무 큽니다.")
+            image.load()
             image = image.convert("RGB")
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
         raise ValueError("지원하지 않거나 손상된 이미지입니다.")
@@ -30,15 +35,20 @@ def read_image(content: bytes, directory: Path):
     path = evidence_dir / evidence_id
     path.write_bytes(buffer.getvalue())
     path.chmod(0o600)
-    executable = shutil.which("tesseract")
-    if not executable:
-        return {"evidence": evidence_id, "text": "", "warning": "Tesseract가 없어 OCR을 실행하지 못했습니다. 원본을 직접 확인해 주세요."}
     tessdata = os.environ.get("SM_TESSDATA")
-    args = [executable, str(path), "stdout", "-l", "kor+eng", "--psm", "6"]
-    if tessdata:
-        args += ["--tessdata-dir", tessdata]
+    if importlib.util.find_spec("tesserocr") is not None:
+        args = [sys.executable, "-m", "smallcloset.ocr_worker", str(path), tessdata or ""]
+    else:
+        executable = shutil.which("tesseract")
+        if not executable:
+            return {"evidence": evidence_id, "text": "", "warning": "OCR 엔진이 없습니다. 윈도우는 INSTALL-WINDOWS.bat를 실행하세요. 원본은 직접 확인할 수 있습니다."}
+        args = [executable, str(path), "stdout", "-l", "kor+eng", "--psm", "6"]
+        if tessdata:
+            args += ["--tessdata-dir", tessdata]
     try:
-        result = subprocess.run(args, capture_output=True, text=True, timeout=45, check=False)
+        result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                timeout=45, check=False, cwd=Path(__file__).resolve().parent.parent,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0)
         if result.returncode:
             return {"evidence": evidence_id, "text": "", "warning": "한국어 OCR 언어팩 또는 Tesseract 실행 오류. 설치 절차를 확인하세요."}
         return {"evidence": evidence_id, "text": result.stdout[:20000],

@@ -14,6 +14,7 @@ from .browser import Browser, Collector, Paused
 from .domain import DEFAULT_RULES, safe_url
 from .ocr import read_image
 from .store import Store
+from .runtime import data_dir
 
 
 class Model(BaseModel):
@@ -111,7 +112,7 @@ class Crop(Model):
 
 
 def create_app(directory=None, browser_override=None):
-    store = Store(directory or os.environ.get("SM_DATA_DIR", str(Path.home() / ".local/share/smallcloset")))
+    store = Store(directory or data_dir())
     browser = browser_override or Browser(store.directory)
     collector = Collector(store, browser)
 
@@ -161,6 +162,10 @@ def create_app(directory=None, browser_override=None):
         return {"products": store.products(), "rules": store.rules(), "jobs": store.jobs(),
                 "browser": browser.state, "browser_open": browser.page is not None,
                 "integration": {"verified": False, "message": "실제 사이트 자동 추출 미검증 · 링크 선택 수집은 검토용 초안입니다. 가격·총장·재고 근거 확인 후 판정합니다."}}
+
+    @app.get("/api/health")
+    async def health():
+        return {"app": "smallcloset", "ready": True}
 
     @app.put("/api/rules")
     async def rules(body: Rules):

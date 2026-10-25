@@ -1,5 +1,15 @@
 # 검증 기록
 
+## Windows 지원 업데이트
+
+Windows 10/11 x64용 `INSTALL-WINDOWS.bat`, `START-WINDOWS.bat`를 추가했습니다. 최초 실행 시 검증된 uv 실행 파일로 전용 Python 3.12를 준비하고, Tesseract DLL이 포함된 공식 `tesserocr` wheel·Chromium·한국어/영어 모델을 사용자 폴더에 설치합니다. WSL·시스템 Python·별도 Tesseract·관리자 권한이 필요하지 않은 경로입니다.
+
+현재 Linux에서 **47개 테스트 통과, 실패/건너뜀 0**과 실제 UI smoke test, 데스크톱 실행 smoke test를 확인했습니다. 새 검증에는 모델 체크섬 불일치 시 기존 파일 보존, 한국어/공백 파일 경로의 OCR, UTF-8 출력, Windows AppData 경로 선택, 포트 충돌 처리, 준비 후 브라우저 열기, 기존 서버 재사용을 포함합니다. Windows 배포용 uv/tesserocr wheel을 PyPI에서 직접 받아 SHA256과 번들 DLL 포함 여부도 확인했습니다.
+
+**Linux 검증을 Windows 실기 검증으로 표시하지 않습니다.** 현재 실행 머신에는 Windows/PowerShell/Wine이 없어 배치 파일과 Windows DLL은 여기서 실행하지 못했습니다. Windows CI 검증을 추가 진행하며 그 결과를 별도로 기록합니다. 실제 신상마켓의 로그인·상품 20개 검증은 아래와 같이 여전히 미실행입니다.
+
+아래 39개 기록은 최초 버전 검증 기록이며 Windows 변경 후의 회귀 검증은 위 47개 결과입니다.
+
 검증일: 2026-10-25 (한국 시간). 환경: Linux, Python 3.12.14, Chromium 154.0.8037.57, Tesseract 5. 직접 의존성과 OCR 모델 버전/해시는 설치 파일에 고정했습니다.
 
 ## 실제 신상마켓 검증

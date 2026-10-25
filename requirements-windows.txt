@@ -1,0 +1,3 @@
+-r requirements.txt
+# This wheel bundles Tesseract, Leptonica and their Windows DLLs.
+tesserocr==2.12.0

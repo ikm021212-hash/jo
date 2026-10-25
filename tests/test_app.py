@@ -11,7 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from smallcloset.app import create_app
 from smallcloset.browser import Collector, Paused
-from smallcloset.ocr import read_image
+from smallcloset.ocr import read_image, ocr_available
 from smallcloset.store import Store
 from test_domain import product, option
 
@@ -159,12 +159,10 @@ class OCRTests(unittest.TestCase):
     def test_invalid_image(self):
         with tempfile.TemporaryDirectory() as d,self.assertRaises(ValueError):read_image(b'not image',Path(d))
 
-    @unittest.skipUnless(shutil.which('tesseract') and os.environ.get('SM_TESSDATA'),'OCR installation required')
+    @unittest.skipUnless(ocr_available() and os.environ.get('SM_TESSDATA'),'OCR installation required')
     def test_local_numeric_ocr_and_original_saved(self):
         from PIL import Image,ImageDraw,ImageFont
-        font_path='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-        if not Path(font_path).exists():self.skipTest('test font unavailable')
-        image=Image.new('RGB',(600,250),'white');draw=ImageDraw.Draw(image);font=ImageFont.truetype(font_path,60)
+        image=Image.new('RGB',(600,250),'white');draw=ImageDraw.Draw(image);font=ImageFont.load_default(size=60)
         draw.text((30,25),'S 67 cm',fill='black',font=font);draw.text((30,130),'M 69 cm',fill='black',font=font)
         buffer=io.BytesIO();image.save(buffer,format='PNG')
         with tempfile.TemporaryDirectory() as d:
@@ -173,11 +171,12 @@ class OCRTests(unittest.TestCase):
             self.assertTrue((Path(d)/'evidence'/result['evidence']).exists())
             self.assertIn('OCR 초안',result['warning'])
 
-    @unittest.skipUnless(shutil.which('tesseract') and os.environ.get('SM_TESSDATA'),'OCR installation required')
+    @unittest.skipUnless(ocr_available() and os.environ.get('SM_TESSDATA'),'OCR installation required')
     def test_korean_table_ocr_is_unverified_draft(self):
         from PIL import Image,ImageDraw,ImageFont
-        font_path='/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
-        if not Path(font_path).exists():self.skipTest('Korean test font unavailable')
+        candidates=['/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',str(Path(os.environ.get('WINDIR','C:/Windows'))/'Fonts/malgun.ttf')]
+        font_path=next((p for p in candidates if Path(p).exists()),None)
+        if not font_path:self.skipTest('Korean test font unavailable')
         image=Image.new('RGB',(900,360),'white');draw=ImageDraw.Draw(image);font=ImageFont.truetype(font_path,60)
         for y,text in [(20,'사이즈    가슴단면    총장'),(130,'S             60             67'),(240,'M            62             69')]:
             draw.text((20,y),text,fill='black',font=font)

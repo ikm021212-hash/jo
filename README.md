@@ -6,7 +6,24 @@
 
 ## 설치와 실행
 
-Linux 또는 macOS, Python 3.12+, curl, Tesseract 5가 필요합니다. Windows에서는 WSL의 Linux 절차를 사용하세요. 현재 검증 환경은 Linux/Python 3.12/Chromium 154/Tesseract 5입니다.
+### Windows 10/11 · 64비트
+
+**WSL이나 리눅스, 별도 Python·Tesseract 설치가 필요 없습니다.**
+
+1. [최신 프로그램 ZIP](https://github.com/ikm021212-hash/jo/archive/refs/heads/smallcloset-app.zip)을 다운로드하고 **모두 압축 풀기**를 선택합니다. ZIP 안에서 배치 파일만 실행하지 마세요.
+2. 풀린 폴더의 **`START-WINDOWS.bat`를 더블클릭**합니다.
+3. 처음에는 전용 Python, 프로그램, Chromium, 한국어·영어 OCR을 자동 설치합니다. 인터넷 연결이 필요하고 몇 분 걸릴 수 있습니다. 설치 후 브라우저에 프로그램 화면이 자동으로 열립니다.
+4. **수집 · 로그인 → 브라우저 열기 → 이동**에서 신상마켓에 직접 로그인합니다.
+
+설치·복구만 따로 실행하려면 `INSTALL-WINDOWS.bat`를 더블클릭합니다. 실행 중인 검은 창은 켜 두고, 종료할 때는 그 창에서 `Ctrl+C`를 누릅니다. 브라우저 화면만 닫으면 프로그램은 계속 실행됩니다. 시작 파일을 다시 누르면 이미 실행 중인 프로그램 화면을 엽니다.
+
+데이터·세션·프로그램 전용 Python과 OCR은 `%LOCALAPPDATA%\SmallCloset`에 보관합니다. 새 ZIP을 다른 폴더에 풀어도 상품과 메모는 유지합니다. 업데이트 전에는 기존 프로그램 창을 종료하세요. 시스템 Python이나 PATH, Windows 전역 실행 정책을 변경하지 않고 관리자 권한 없이 사용자 폴더에 설치합니다. 배치 파일의 실행 정책 옵션은 해당 PowerShell 프로세스에만 적용하며 TLS·파일 해시 검증은 유지합니다.
+
+이 설치 경로는 Windows 10/11 **x64**용입니다. Windows ARM64·32비트는 아직 지원하지 않습니다. 회사 PC의 실행 제한이나 네트워크 차단이 있으면 빨간 오류 메시지를 확인해 주세요. 설치 창은 오류가 나도 닫히지 않게 안내합니다.
+
+### Linux / macOS
+
+Python 3.12+, curl, Tesseract 5가 필요합니다. 현재 로컬 회귀 검증 환경은 Linux/Python 3.12/Chromium 154입니다. Windows 설치/실행 검증 상태는 [VALIDATION.md](VALIDATION.md)에 별도로 기록합니다.
 
 Tesseract가 없는 PC에서 먼저 설치합니다.
 
@@ -69,7 +86,7 @@ SM_DATA_DIR=/workspace/.smallcloset-data bash scripts/run.sh
 
 상품을 체크하면 선택 상품을, 체크하지 않으면 현재 필터 결과를 CSV로 내보냅니다. CSV는 UTF-8 BOM으로 저장하여 Excel에서 한글을 읽을 수 있습니다. 상품 링크·거래처·가격·사이즈별 총장·충족 옵션·메모·근거 등을 포함하며 수식 주입 문자를 처리합니다. 브라우저 프로필이나 인증 헤더는 내보내지 않습니다.
 
-데이터 기본 경로는 `~/.local/share/smallcloset`입니다. `SM_DATA_DIR`로 변경할 수 있습니다.
+데이터 기본 경로는 Windows에서 `%LOCALAPPDATA%\SmallCloset`, Linux/macOS에서 `~/.local/share/smallcloset`입니다. `SM_DATA_DIR`로 변경할 수 있습니다.
 
 ```text
 products.sqlite3     상품, 메모, 기준, 작업 큐
@@ -77,11 +94,14 @@ evidence/            사용자가 선택/업로드한 사이즈표 PNG
 browser-session/     로컬 전용 로그인 프로필 — Git·로그·결과 공유 금지
 tessdata/            검증된 로컬 OCR 모델
 browsers/            필요한 경우 Playwright Chromium
+windows-env/         윈도우 전용 Python 가상환경
+python/              자동 설치한 전용 Python
+tools/               SHA256으로 검증한 uv 실행 파일
 ```
 
-데이터는 저장소 밖에 둡니다. `data/`, `.smallcloset-data/`, `.env`, 가상환경은 Git에서 제외합니다. 프로필과 DB 디렉터리 권한은 소유자 전용으로 설정합니다. 세션 삭제는 프로그램을 종료한 뒤 `browser-session/`만 삭제하면 됩니다. 전체 폴더를 결과 파일로 공유하지 마세요. 프로그램은 루프백에만 바인딩하며 외부 공개를 지원하지 않습니다.
+데이터는 저장소 밖에 둡니다. `data/`, `.smallcloset-data/`, `.env`, 가상환경은 Git에서 제외합니다. Unix에서는 디렉터리를 소유자 전용으로 설정하고 Windows에서는 사용자 AppData 폴더의 기본 접근 권한을 사용합니다. 세션 삭제는 프로그램을 종료한 뒤 `browser-session/`만 삭제하면 됩니다. 전체 폴더를 결과 파일로 공유하지 마세요. 프로그램은 루프백에만 바인딩하며 외부 공개를 지원하지 않습니다.
 
-환경 변수: `SM_DATA_DIR`(데이터 경로), `SM_CHROMIUM`(브라우저 실행 파일), `SM_HEADLESS=1`(창 없이 앱 안의 실제 브라우저 사용), `SM_PORT`(포트), `SM_TESSDATA`(직접 실행 시 OCR 모델 경로). `run.sh`는 모델·브라우저 경로를 자동 설정합니다. 현재 환경의 HTTPS 프록시 설정은 브라우저에서도 사용하며 TLS 검증은 유지합니다.
+환경 변수: `SM_DATA_DIR`(데이터 경로), `SM_CHROMIUM`(브라우저 실행 파일), `SM_HEADLESS=1`(창 없이 앱 안의 실제 브라우저 사용), `SM_PORT`(포트), `SM_TESSDATA`(직접 실행 시 OCR 모델 경로). 실행 파일은 모델·브라우저 경로를 자동 설정합니다. 현재 환경의 HTTPS 프록시 설정은 브라우저에서도 사용하며 TLS 검증은 유지합니다. Windows에서는 DLL을 포함한 공식 `tesserocr` wheel을 사용하고, OCR은 별도 프로세스에서 UTF-8로 처리하며 45초 제한을 적용합니다.
 
 ## 검증과 남은 작업
 
@@ -90,7 +110,10 @@ browsers/            필요한 경우 Playwright Chromium
 ```bash
 SM_TESSDATA="${SM_DATA_DIR:-$HOME/.local/share/smallcloset}/tessdata" SM_BROWSER_TESTS=1 .venv/bin/python scripts/test.py
 .venv/bin/python scripts/smoke_ui.py
+.venv/bin/python scripts/smoke_desktop.py
 ```
+
+Windows 개발자 검증은 PowerShell에서 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows.ps1 -Mode Test`로 실행합니다. 이 모드는 검증용 의존성을 추가로 설치하며 임시 DB에서 테스트합니다.
 
 테스트는 임시 DB와 **테스트 전용 상품/HTML/이미지**를 사용합니다. 실제 DB에 가짜 상품을 넣지 않습니다. 브라우저 테스트는 실제 Chromium에서 가로/세로 HTML 표·제품설명 탭·로그인 필요·CAPTCHA 일시정지를 검증하지만, 신상마켓의 실페이지 검증을 대체하지 않습니다.
 

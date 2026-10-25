@@ -1,0 +1,21 @@
+{
+  "python": "3.12.14",
+  "uv": {
+    "url": "https://files.pythonhosted.org/packages/32/ea/771744a784b16aa21d195cb5d5d5a2878d72fa00fc26f11ea3f9646994fe/uv-0.13.5-py3-none-win_amd64.whl",
+    "sha256": "1fb29fc46ba12033e2ef95a95ac79d649e71bbb1358419bbbcbd19d86026ef2f",
+    "entry": "uv-0.13.5.data/scripts/uv.exe",
+    "exe_sha256": "f45d1cb9d9140ca6d3f4005fdfc0ebeccf849fd04d1dc85804155cb923f1597b"
+  },
+  "models": [
+    {
+      "name": "kor.traineddata",
+      "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/kor.traineddata",
+      "sha256": "f888d4038348a0c3d25151e7f452bda0d74ca275b18cab146798bcbb94084fff"
+    },
+    {
+      "name": "eng.traineddata",
+      "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata",
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+    }
+  ]
+}
