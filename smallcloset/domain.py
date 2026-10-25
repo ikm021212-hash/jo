@@ -14,6 +14,8 @@ SECRET_KEY = re.compile(r"token|session|auth|password|secret|credential|code|tic
 def classify_category(name, chosen):
     if re.search(r"[가카]디건|후드[\s_·-]*집업", name or ""):
         return "상의"
+    if re.search(r"바지|팬츠|슬랙스|\b(?:pants|jeans)\b", name or "", re.I):
+        return "바지"
     return chosen
 
 

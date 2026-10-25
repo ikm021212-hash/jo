@@ -20,6 +20,15 @@ def product(*options, **overrides):
 
 
 class DecisionTests(unittest.TestCase):
+    def test_all_named_pants_use_bottom_inclusive_limits(self):
+        for name in ['청바지','데님 팬츠','슬랙스','조거팬츠','카고팬츠','반바지','트레이닝 바지','JEANS','PANTS']:
+            with self.subTest(name=name):
+                p=product(option(price=29300,length='100'),name=name,category='상의')
+                self.assertEqual(evaluate(p,DEFAULT_RULES)['status'],'pass')
+
+    def test_denim_fabric_does_not_turn_a_jacket_into_pants(self):
+        p=product(option(price=51500,length='70'),name='데님 재킷',category='아우터')
+        self.assertEqual(evaluate(p,DEFAULT_RULES)['status'],'pass')
     def test_cardigans_and_zip_hoodies_use_top_price_limit(self):
         for name in ['가디건','카디건','후드집업','후드 집업','남성 후드-집업']:
             with self.subTest(name=name):

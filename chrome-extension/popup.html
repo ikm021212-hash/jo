@@ -1,7 +1,7 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><title>작은옷장 가져오기</title><link rel="stylesheet" href="popup.css"><script src="popup.js" defer></script></head><body>
 <p class="eyebrow">작은옷장 · 일반 Chrome</p><h1>현재 상품 가져오기</h1>
 <p>신상마켓에서 상품과 <b>제품설명</b> 탭을 직접 연 뒤 사용하세요. 선택한 설명 텍스트와 보이는 HTML 표를 검토용 초안으로 보냅니다.</p>
-<label>분류<select id="category"><option>미분류</option><option>아우터</option><option>상의</option><option>바지</option></select></label>
+<label>분류<select id="category"><option>미분류</option><option>아우터</option><option>상의</option><option value="바지">하의 · 바지류 전체</option></select></label>
 <label>작은옷장 프로그램 포트<input id="port" type="number" min="1" max="65535" value="8000"></label>
 <label class="check"><input id="confirmed" type="checkbox">남성의류 카테고리에서 이동한 상품 상세페이지임을 확인했습니다.</label>
 <button id="capture" disabled>현재 상품 가져오기</button><p id="status" role="status"></p>
