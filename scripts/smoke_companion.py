@@ -97,6 +97,14 @@ async def exercise_automatic(client,context,product,popup,base):
         assert record['image_url'].startswith('/api/evidence/')
         response=await client.get(base+record['image_url']);assert response.status_code==200
         assert response.content.startswith(b'\x89PNG')
+    dashboard=await context.new_page();await dashboard.goto(base)
+    await expect(dashboard.locator('.card-image img')).to_have_count(20,timeout=15000)
+    for _ in range(50):
+        if await dashboard.locator('.card-image img').evaluate_all('(images)=>images.length===20 && images.every(image=>image.complete && image.naturalWidth>0)'):
+            break
+        await asyncio.sleep(0.1)
+    else:raise AssertionError('saved product images did not load in the results screen')
+    await expect(dashboard.get_by_role('heading',name='크롭 후드집업 테스트 1',exact=True)).to_be_visible()
     print('PASS: ONE start -> 20 real extension-driven synthetic detail visits; detail-cut tab measurements; exact names, suppliers and reloaded local photos; image OCR; security pause/no retry/manual resume; same-option S-only match; no duplicate or cookie leak. NOT LIVE SITE DATA.')
 
 
