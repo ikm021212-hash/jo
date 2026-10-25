@@ -1,9 +1,15 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>작은옷장 가져오기</title><link rel="stylesheet" href="popup.css"><script src="popup.js" defer></script></head><body>
-<p class="eyebrow">작은옷장 · 일반 Chrome</p><h1>현재 상품 가져오기</h1>
-<p>신상마켓에서 상품과 <b>제품설명</b> 탭을 직접 연 뒤 사용하세요. 선택한 설명 텍스트와 보이는 HTML 표를 검토용 초안으로 보냅니다.</p>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>작은옷장 자동 수집</title><link rel="stylesheet" href="popup.css"><script src="popup.js" defer></script></head><body>
+<p class="eyebrow">작은옷장 · 남성 의류</p><h1>목록에서 자동 수집</h1>
+<p>일반 Chrome에서 남성 상품 목록을 연 뒤 시작하세요. 상품별 버튼 없이 목록의 실제 상품 링크를 순서대로 방문합니다.</p>
 <label>분류<select id="category"><option>미분류</option><option>아우터</option><option>상의</option><option value="바지">하의 · 바지류 전체</option></select></label>
+<label>수집 한도<input id="limit" type="number" min="1" max="200" value="20"></label>
+<label>현재 목록 내 검색어 · 선택<input id="keyword" maxlength="200" placeholder="사이트에서 직접 검색한 목록을 열어도 됩니다"></label>
 <label>작은옷장 프로그램 포트<input id="port" type="number" min="1" max="65535" value="8000"></label>
-<label class="check"><input id="confirmed" type="checkbox">남성의류 카테고리에서 이동한 상품 상세페이지임을 확인했습니다.</label>
-<button id="capture" disabled>현재 상품 가져오기</button><p id="status" role="status"></p>
-<p class="small">가디건·후드집업은 상의입니다. 총장이 없어도 숏기장·크롭 문구가 있으면 확인 필요 후보로 보관합니다. 설명에만 문구가 있으면 그 부분을 선택한 뒤 가져오세요.</p><p class="small">로그인 정보·쿠키는 읽거나 전송하지 않습니다. 이미지 사이즈표는 프로그램의 이미지 OCR에서 확인하세요. 가격·옵션·재고는 자동 확정하지 않습니다.</p>
+<label class="check"><input id="confirmed" type="checkbox">현재 남성의류 카테고리에서 고른 목록 또는 상품임을 확인했습니다.</label>
+<button id="auto-start" disabled>현재 목록 자동 수집 시작</button>
+<label>수집 작업 번호<input id="job-id" type="number" min="1" placeholder="시작하면 자동 입력됩니다"></label>
+<div class="row"><button id="auto-pause">일시정지</button><button id="auto-resume">재개</button></div><p id="auto-status" role="status"></p>
+<p class="small">이 Chrome 탭을 수집에 사용합니다. 팝업을 닫아도 계속됩니다. 보안 확인·로그인 만료가 나오면 중지합니다. 직접 확인한 뒤 재개하세요.</p>
+<details><summary>현재 상품만 수동으로 가져오기</summary><button id="capture" disabled>현재 상품 가져오기</button><p id="status" role="status"></p></details>
+<p class="small">가디건·후드집업은 상의, 팬츠·청바지 등 바지류는 하의입니다. 총장 미확인의 숏기장·크롭 상품도 후보로 저장합니다. 원본 수치가 확인되지 않으면 통과시키지 않습니다.</p>
 </body></html>

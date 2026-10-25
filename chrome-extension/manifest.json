@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "작은옷장 · 현재 상품 가져오기",
-  "version": "0.3.0",
-  "description": "일반 Chrome에서 사용자가 직접 연 신상마켓 상품의 검토용 근거를 로컬 작은옷장으로 보냅니다.",
+  "name": "작은옷장 · 남성 상품 자동 수집",
+  "version": "0.4.0",
+  "description": "현재 남성 목록에서 실제 상품 링크를 순차 방문하고 로컬에 저장합니다. 보안 확인이 나오면 중지합니다.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApJ1ITuRF0g9cwBewNm8dBr4PMGnuf4hYZEu2E47kg9gsGsF3S50uDN6Zz5V/y8/erHrKwrW1f+qfDTp7BFlF0aZVQ0AUdPCAd10/bMAnJZSP4fZCiYIWrcJZyQfuT4QJST9es92LgKbjOL6LxRhU1PIKVfoAbI7ZTqfHYkNhGMnr0kq782C7ZkrPZ59XghOZFvdkJWB+3EqC5E3mhRWN8ajjJuaq4+YaDEyAFf0txbrfnVwiTWQbbCHIi1LE5I22Qk8xt2OztrqL3QtmaANiphfzpFxZ7zEhYRmF64n91MoioducvBwKtPBYVTLCnV1LxYXZ7sz9XgXZMLTwBpDd4QIDAQAB",
   "permissions": [
     "activeTab",
@@ -19,6 +19,6 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "작은옷장으로 현재 상품 가져오기"
+    "default_title": "작은옷장 자동 수집"
   }
 }

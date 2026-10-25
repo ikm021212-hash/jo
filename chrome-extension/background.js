@@ -1,4 +1,4 @@
-importScripts('capture.js');
+importScripts('capture.js','automatic-page.js','automatic.js');
 
 async function captureCurrentProduct(message) {
   if (message.confirmed_product !== true) throw new Error('상품 상세페이지임을 확인해 주세요.');
@@ -27,7 +27,9 @@ async function captureCurrentProduct(message) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
-  if (sender.id !== chrome.runtime.id || message?.type !== 'capture-current-product') return;
-  captureCurrentProduct(message).then(data => respond({ok: true, ...data}), error => respond({ok: false, error: error.message}));
+  if (sender.id !== chrome.runtime.id) return;
+  const action=message?.type==='capture-current-product'?captureCurrentProduct(message):message?.type?.startsWith('auto-')?handleAutomaticMessage(message):null;
+  if(!action)return;
+  action.then(data => respond({ok: true, ...data}), error => respond({ok: false, error: error.message}));
   return true;
 });

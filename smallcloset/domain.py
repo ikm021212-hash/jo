@@ -9,6 +9,11 @@ DEFAULT_RULES = {
 }
 SITE_HOSTS = {"sinsangmarket.kr", "www.sinsangmarket.kr"}
 SECRET_KEY = re.compile(r"token|session|auth|password|secret|credential|code|ticket|signature|key", re.I)
+PUBLIC_QUERY_NAMES = {"keyword", "searchkeyword", "goodskeyword", "productcode", "goodscode", "itemcode", "categorycode"}
+
+
+def sensitive_parameter(name):
+    return name.lower() not in PUBLIC_QUERY_NAMES and bool(SECRET_KEY.search(name))
 
 
 def classify_category(name, chosen):
@@ -16,6 +21,11 @@ def classify_category(name, chosen):
         return "상의"
     if re.search(r"바지|팬츠|슬랙스|\b(?:pants|jeans)\b", name or "", re.I):
         return "바지"
+    if chosen not in DEFAULT_RULES:
+        if re.search(r"재킷|자켓|점퍼|코트|패딩|바람막이", name or ""):
+            return "아우터"
+        if re.search(r"티셔츠|셔츠|맨투맨|후드티|니트", name or ""):
+            return "상의"
     return chosen
 
 
@@ -33,7 +43,7 @@ def safe_url(value: str, *, site_only=True) -> str:
     if p.port not in (None, 443):
         raise ValueError("기본 HTTPS 포트만 허용합니다.")
     pairs = parse_qsl(p.query, keep_blank_values=True)
-    if any(SECRET_KEY.search(k) for k, _ in pairs):
+    if any(sensitive_parameter(k) for k, _ in pairs):
         raise ValueError("인증 정보로 보이는 쿼리 매개변수가 있는 URL은 저장하지 않습니다.")
     pairs = sorted((k, v) for k, v in pairs if not k.lower().startswith("utm_") and k not in {"fbclid", "gclid"})
     return urlunsplit(("https", p.hostname.lower(), p.path.rstrip("/") or "/", urlencode(pairs), ""))
@@ -80,6 +90,9 @@ def evaluate(product: dict, rules: dict) -> dict:
         return {"status": "review", "reason": "세트의 품목별 가격·총장을 구분할 수 없습니다.", "matching_options": [], "options": []}
     if product.get("gender") != "남성":
         return {"status": "review", "reason": "남성 의류 여부 확인이 필요합니다.", "matching_options": [], "options": []}
+    minimum = product.get("listing_min_price")
+    if isinstance(minimum, (int, float)) and product.get("listing_price_evidence") and minimum > rules[category]["price"]:
+        return {"status": "fail", "reason": "목록에 명시된 최저 가격이 상한을 초과합니다.", "matching_options": [], "options": []}
     results = []
     for option in product.get("options", []):
         label = " / ".join(filter(None, [option.get("size"), option.get("color")])) or "옵션명 미확인"

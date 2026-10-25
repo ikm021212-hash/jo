@@ -15,7 +15,7 @@ def ocr_available():
     return importlib.util.find_spec("tesserocr") is not None or shutil.which("tesseract") is not None
 
 
-def read_image(content: bytes, directory: Path):
+def save_image(content: bytes, directory: Path):
     if len(content) > 10_000_000:
         raise ValueError("이미지는 10MB 이하로 올려주세요.")
     try:
@@ -35,6 +35,11 @@ def read_image(content: bytes, directory: Path):
     path = evidence_dir / evidence_id
     path.write_bytes(buffer.getvalue())
     path.chmod(0o600)
+    return evidence_id, path
+
+
+def read_image(content: bytes, directory: Path):
+    evidence_id, path = save_image(content, directory)
     tessdata = os.environ.get("SM_TESSDATA")
     if importlib.util.find_spec("tesserocr") is not None:
         args = [sys.executable, "-m", "smallcloset.ocr_worker", str(path), tessdata or ""]

@@ -125,6 +125,41 @@ class Store:
         with self.connect() as db:
             db.execute("UPDATE queue SET state=?,error=? WHERE id=?", (state, error, item_id))
 
+    def chrome_job(self, job_id):
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+            job = dict(row) if row else None
+            if job:
+                job["scope"] = json.loads(job["scope"])
+                job["items"] = [dict(item) for item in db.execute("SELECT * FROM queue WHERE job_id=? ORDER BY id", (job_id,))]
+                job["total"] = len(job["items"])
+                job["done"] = sum(item["state"] == "done" for item in job["items"])
+                job["failed"] = sum(item["state"] == "failed" for item in job["items"])
+        if not job or job["scope"].get("transport") != "chrome_auto":
+            raise ValueError("Chrome 자동 수집 작업이 아닙니다.")
+        return job
+
+    def resume_chrome_job(self, job_id):
+        self.chrome_job(job_id)
+        with self.connect() as db:
+            db.execute("UPDATE queue SET state='pending' WHERE job_id=? AND state IN ('working','failed')", (job_id,))
+            db.execute("UPDATE jobs SET state='running',reason='' WHERE id=?", (job_id,))
+
+    def next_chrome_item(self, job_id):
+        job = self.chrome_job(job_id)
+        if job["state"] != "running":
+            return None
+        with self.connect() as db:
+            # One in-flight item per job, including after a retry.
+            row = db.execute("SELECT * FROM queue WHERE job_id=? AND state='working' ORDER BY id LIMIT 1", (job_id,)).fetchone()
+            if not row:
+                row = db.execute("SELECT * FROM queue WHERE job_id=? AND state='pending' ORDER BY id LIMIT 1", (job_id,)).fetchone()
+            if row:
+                db.execute("UPDATE queue SET state='working' WHERE id=?", (row["id"],))
+                return dict(row)
+        self.set_job(job_id, "completed", "자동 수집 완료. 확인 필요 상품의 근거를 확인하세요.")
+        return None
+
     def csv(self, products):
         stream = io.StringIO(newline="")
         writer = csv.writer(stream)
@@ -133,7 +168,7 @@ class Store:
         for p in products:
             opts = p.get("options", [])
             row = [status[p["decision"]["status"]], p.get("name", ""), p["url"], p.get("supplier", ""), p.get("location", ""), p.get("category", ""),
-                   "; ".join(f"{o.get('size','')} {o.get('color','')}: {o.get('price')} + {o.get('extra_price')}원" for o in opts),
+                   ("; ".join(f"{o.get('size','')} {o.get('color','')}: {o.get('price')} + {o.get('extra_price')}원" for o in opts) or (f"목록 최저 {p['listing_min_price']}원" if p.get("listing_min_price") is not None else "미확인")),
                    "; ".join(f"{o.get('size','')} {o.get('color','')}: {o.get('length_raw','미확인')}" for o in opts),
                    "; ".join(p["decision"]["matching_options"]),
                    "; ".join(f"{o.get('color','')}: {o.get('stock','unknown')}" for o in opts), p.get("memo", ""), p["collected_at"],

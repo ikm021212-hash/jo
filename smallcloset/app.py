@@ -14,7 +14,9 @@ from starlette.middleware.cors import CORSMiddleware
 from .browser import Browser, Collector, Paused, table_candidates
 from .companion import EXTENSION_DIRECTORY, EXTENSION_ID, EXTENSION_ORIGIN, challenge_reason
 from .domain import DEFAULT_RULES, safe_url
-from .ocr import read_image
+from .ocr import read_image, save_image
+from .automatic import build_automatic_product, explicit_minimum
+from .domain import classify_category
 from .store import Store
 from .runtime import data_dir
 
@@ -49,7 +51,11 @@ class Product(Model):
     options: list[Option] = Field(default_factory=list, max_length=200)
     capture_note: str = Field(default="", max_length=2000)
     source_excerpt: str = Field(default="", max_length=1500)
-    source_type: Literal["manual", "browser_draft", "chrome_companion"] = "manual"
+    source_type: Literal["manual", "browser_draft", "chrome_companion", "chrome_auto"] = "manual"
+    ocr_notes: str = Field(default="", max_length=20000)
+    evidence_images: list[str] = Field(default_factory=list, max_length=4)
+    listing_min_price: float | None = Field(default=None, ge=0, le=100000000)
+    listing_price_evidence: str = Field(default="", max_length=1000)
 
     @field_validator("url")
     @classmethod
@@ -62,6 +68,13 @@ class Product(Model):
         if not value or re.fullmatch(r"/api/evidence/[a-f0-9]{64}\.png", value):
             return value
         return safe_url(value, site_only=False)
+
+    @field_validator("evidence_images")
+    @classmethod
+    def evidence_check(cls, value):
+        if any(not re.fullmatch(r"/api/evidence/[a-f0-9]{64}\.png", path) for path in value):
+            raise ValueError("로컬에 저장된 이미지 근거만 연결할 수 있습니다.")
+        return value
 
 
 class Bounds(Model):
@@ -146,6 +159,69 @@ class CompanionProduct(Model):
         return value
 
 
+class AutoOffer(Model):
+    size: str = Field(default="", max_length=100)
+    color: str = Field(default="", max_length=100)
+    price: float | None = Field(default=None, ge=0, le=100000000)
+    currency: str = Field(default="", max_length=20)
+    availability: str = Field(default="", max_length=300)
+    visible_price_text: str = Field(default="", max_length=500)
+
+
+class AutoPage(CompanionProduct):
+    name: str = Field(default="", max_length=300)
+    name_source: str = Field(default="페이지 제목 후보", max_length=100)
+    site_category: str = Field(default="", max_length=200)
+    supplier: str = Field(default="", max_length=200)
+    offers: list[AutoOffer] = Field(default_factory=list, max_length=200)
+    table_units: list[str] = Field(default_factory=list, max_length=20)
+    image_url: str = Field(default="", max_length=2048)
+    ocr_notes: str = Field(default="", max_length=20000)
+    evidence_images: list[str] = Field(default_factory=list, max_length=4)
+    detail_note: str = Field(default="", max_length=500)
+
+
+class ListingCandidate(Model):
+    url: str = Field(max_length=2048)
+    label: str = Field(default="", max_length=1000)
+    name: str = Field(default="", max_length=300)
+    image_url: str = Field(default="", max_length=2048)
+
+    @field_validator("image_url")
+    @classmethod
+    def valid_image(cls, value):
+        return safe_url(value, site_only=False) if value else ""
+
+    @field_validator("url")
+    @classmethod
+    def valid_url(cls, value):
+        return safe_url(value)
+
+
+class AutoStart(Model):
+    source_url: str = Field(max_length=2048)
+    candidates: list[ListingCandidate] = Field(min_length=1, max_length=200)
+    limit: int = Field(default=20, ge=1, le=200)
+    category: Literal["미분류", "아우터", "상의", "바지"] = "미분류"
+    keyword: str = Field(default="", max_length=200)
+    men_category_confirmed: Literal[True]
+
+    @field_validator("source_url")
+    @classmethod
+    def valid_source(cls, value):
+        return safe_url(value)
+
+
+class AutoItemResult(Model):
+    item_id: int
+    page: AutoPage | None = None
+    error: str = Field(default="", max_length=500)
+
+
+class PauseReason(Model):
+    reason: str = Field(default="사용자 일시정지", max_length=500)
+
+
 def create_app(directory=None, browser_override=None):
     store = Store(directory or data_dir())
     browser = browser_override or Browser(store.directory)
@@ -199,7 +275,7 @@ def create_app(directory=None, browser_override=None):
     async def state():
         return {"products": store.products(), "rules": store.rules(), "jobs": store.jobs(),
                 "browser": browser.state, "browser_open": browser.page is not None,
-                "integration": {"verified": False, "message": "실제 사이트 자동 추출 미검증 · 링크 선택 수집은 검토용 초안입니다. 가격·총장·재고 근거 확인 후 판정합니다."}}
+                "integration": {"verified": False, "message": "실제 사이트 20개 검증 미완료 · 자동 수집에서 같은 옵션의 가격·총장·재고 근거가 확인된 경우만 통과시킵니다."}}
 
     @app.get("/api/health")
     async def health():
@@ -229,6 +305,71 @@ def create_app(directory=None, browser_override=None):
                        source_excerpt=body.selection,
                        capture_note="일반 Chrome에서 남성의류 카테고리로부터 이동한 상품임을 사용자가 확인했습니다. 상품명은 페이지 제목의 임시값이며 가격·총장·재고 확인이 필요합니다.\n선택한 원문: " + body.selection)
         return {"id": store.upsert(data.model_dump()), "status": "review"}
+
+    @app.post("/api/companion/auto/start")
+    async def auto_start(body: AutoStart):
+        urls = [candidate.url for candidate in body.candidates]
+        candidates = {candidate.url: candidate.model_dump() for candidate in body.candidates}
+        job_id = store.create_job(urls, body.limit, {"transport": "chrome_auto", "source_url": body.source_url,
+                                  "category": body.category, "keyword": body.keyword, "men_category_confirmed": True,
+                                  "candidates": candidates})
+        store.resume_chrome_job(job_id)
+        return {"job_id": job_id, "job": store.chrome_job(job_id)}
+
+    @app.get("/api/companion/auto/{job_id}")
+    async def auto_status(job_id: int):
+        return store.chrome_job(job_id)
+
+    @app.post("/api/companion/auto/{job_id}/resume")
+    async def auto_resume(job_id: int):
+        store.resume_chrome_job(job_id)
+        return store.chrome_job(job_id)
+
+    @app.post("/api/companion/auto/{job_id}/pause")
+    async def auto_pause(job_id: int, body: PauseReason):
+        store.chrome_job(job_id)
+        store.set_job(job_id, "paused", body.reason)
+        return {"ok": True}
+
+    @app.post("/api/companion/auto/{job_id}/next")
+    async def auto_next(job_id: int):
+        item = store.next_chrome_item(job_id)
+        job = store.chrome_job(job_id)
+        if not item:
+            return {"item": None, "job": job}
+        candidate = job["scope"].get("candidates", {}).get(item["url"], {})
+        minimum = explicit_minimum(candidate.get("label", ""))
+        category = classify_category(candidate.get("name", ""), job["scope"]["category"])
+        # Only a literal, unambiguous stated minimum permits pre-filtering.
+        if minimum is not None and category in store.rules() and minimum > store.rules()[category]["price"]:
+            data = Product(url=item["url"], name=candidate.get("name") or "상품명 확인 필요 · 목록 가격으로 제외", category=category, gender="남성",
+                           image_url=candidate.get("image_url", ""), source_excerpt=candidate.get("label", "")[:1500],
+                           listing_min_price=minimum, listing_price_evidence=candidate.get("label", ""),
+                           source_type="chrome_auto", capture_note="목록에 명시된 최저 가격으로 사전 제외. 상세페이지는 방문하지 않았습니다.")
+            store.upsert(data.model_dump()); store.set_item(item["id"], "done")
+            return {"item": None, "filtered": True, "job": store.chrome_job(job_id)}
+        item["listed_name"] = candidate.get("name", "")
+        return {"item": item, "job": job}
+
+    @app.post("/api/companion/auto/{job_id}/result")
+    async def auto_result(job_id: int, body: AutoItemResult):
+        job = store.chrome_job(job_id)
+        item = next((item for item in job["items"] if item["id"] == body.item_id), None)
+        if not item:
+            raise HTTPException(400, "이 작업에 속한 상품이 아닙니다.")
+        if item["state"] == "done":
+            return {"ok": True, "already_done": True}
+        if body.page:
+            reason = challenge_reason(body.page.title + "\n" + body.page.selection)
+            if reason:
+                store.set_item(item["id"], "pending"); store.set_job(job_id, "paused", reason)
+                raise HTTPException(409, reason)
+            data = Product(**build_automatic_product(body.page.model_dump(), job["scope"]["category"]))
+            product_id = store.upsert(data.model_dump())
+            store.set_item(item["id"], "done")
+            return {"id": product_id, "decision": store.product(product_id)["decision"]}
+        store.set_item(item["id"], "failed", body.error or "페이지 읽기 실패")
+        return {"ok": True}
 
     @app.put("/api/rules")
     async def rules(body: Rules):
@@ -280,13 +421,19 @@ def create_app(directory=None, browser_override=None):
 
     @app.post("/api/jobs/{job_id}/resume")
     async def resume(job_id: int):
+        existing = next((job for job in store.jobs() if job["id"] == job_id), None)
+        if existing and existing["scope"].get("transport") == "chrome_auto":
+            raise HTTPException(409, "일반 Chrome 확장프로그램에서 자동 수집 재개를 누르세요.")
         await collector.start(job_id)
         return {"ok": True}
 
     @app.post("/api/jobs/pause")
     async def pause():
         collector.pause()
-        return {"ok": True, "message": "현재 요청 처리 후 중지합니다. 최대 30초가 걸릴 수 있습니다."}
+        for job in store.jobs():
+            if job["state"] == "running" and job["scope"].get("transport") == "chrome_auto":
+                store.set_job(job["id"], "paused", "사용자 일시정지")
+        return {"ok": True, "message": "현재 요청 처리 후 중지합니다. 완료한 결과는 그대로 유지합니다."}
 
     @app.post("/api/browser/open")
     async def open_browser():
@@ -362,6 +509,16 @@ def create_app(directory=None, browser_override=None):
             if len(content) > 10_000_000:
                 raise HTTPException(413, "이미지는 10MB 이하로 올려주세요.")
         return await asyncio.to_thread(read_image, bytes(content), store.directory)
+
+    @app.post("/api/images")
+    async def images(request: Request):
+        content = bytearray()
+        async for chunk in request.stream():
+            content.extend(chunk)
+            if len(content) > 10_000_000:
+                raise HTTPException(413, "이미지는 10MB 이하로 저장할 수 있습니다.")
+        evidence_id, _ = await asyncio.to_thread(save_image, bytes(content), store.directory)
+        return {"evidence": evidence_id, "url": "/api/evidence/" + evidence_id}
 
     @app.post("/api/browser/ocr-crop")
     async def ocr_crop(body: Crop):

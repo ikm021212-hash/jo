@@ -4,7 +4,7 @@ function captureProductPage() {
   if (pageUrl.protocol !== 'https:' || !['sinsangmarket.kr', 'www.sinsangmarket.kr'].includes(pageUrl.hostname)) {
     return {capture_error:'신상마켓의 실제 상품 상세페이지에서 사용하세요.'};
   }
-  if (pageUrl.username || pageUrl.password || [...pageUrl.searchParams.keys()].some(key => /token|session|auth|password|secret|credential|code|ticket|signature|key/i.test(key))) {
+  if (pageUrl.username || pageUrl.password || [...pageUrl.searchParams.keys()].some(key => (!['keyword','searchkeyword','goodskeyword','productcode','goodscode','itemcode','categorycode'].includes(key.toLowerCase()) && /token|session|auth|password|secret|credential|code|ticket|signature|key/i.test(key)))) {
     return {capture_error:'인증 정보가 포함될 수 있는 URL은 가져오지 않습니다. 로그인 후 일반 상품 URL을 여세요.'};
   }
   const visible = element => !!element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden';
@@ -15,6 +15,9 @@ function captureProductPage() {
   }
   if ([...document.querySelectorAll('input[type="password"]')].some(visible)) {
     return {capture_error:'로그인 화면은 가져오지 않습니다. Chrome에서 직접 로그인한 뒤 상품을 여세요.'};
+  }
+  if (/로그인이 필요|로그인 후 이용|로그인해 주세요/.test(rawText) && [...document.querySelectorAll('button,a')].some(e=>visible(e) && e.innerText.trim()==='로그인')) {
+    return {capture_error:'로그인 화면입니다. 직접 로그인한 뒤 자동 수집을 재개하세요.'};
   }
   const tables = [...document.querySelectorAll('table')].filter(visible).slice(0, 20).map(table =>
     [...table.rows].slice(0, 60).map(row => [...row.cells].slice(0, 20).map(cell => ({

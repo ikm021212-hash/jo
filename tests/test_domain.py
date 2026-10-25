@@ -105,6 +105,10 @@ class DecisionTests(unittest.TestCase):
 
 
 class URLTests(unittest.TestCase):
+    def test_public_search_keyword_and_product_code_are_not_auth_codes(self):
+        value=safe_url('https://www.sinsangmarket.kr/items?keyword=knit&goodsCode=123')
+        self.assertIn('keyword=knit',value);self.assertIn('goodsCode=123',value)
+        with self.assertRaises(ValueError):safe_url('https://www.sinsangmarket.kr/items?code=AUTH-CODE')
     def test_normalization(self):
         self.assertEqual(safe_url("https://www.sinsangmarket.kr/item/?b=2&utm_source=x&a=1#top"),"https://www.sinsangmarket.kr/item?a=1&b=2")
 
