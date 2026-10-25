@@ -13,6 +13,7 @@ async function captureCurrentProduct(message) {
   }
   const results = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: captureProductPage});
   const page = results[0]?.result;
+  if (page?.capture_error) throw new Error(page.capture_error);
   if (!page) throw new Error('현재 페이지를 읽을 수 없습니다. 페이지 로딩 후 다시 시도하세요.');
   const response = await fetch(`http://127.0.0.1:${port}/api/companion/products`, {
     method: 'POST', headers: {'Content-Type': 'application/json', 'X-Local-Client': 'smallcloset'},
