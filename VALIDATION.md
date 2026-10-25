@@ -4,9 +4,18 @@
 
 Windows 10/11 x64용 `INSTALL-WINDOWS.bat`, `START-WINDOWS.bat`를 추가했습니다. 최초 실행 시 검증된 uv 실행 파일로 전용 Python 3.12를 준비하고, Tesseract DLL이 포함된 공식 `tesserocr` wheel·Chromium·한국어/영어 모델을 사용자 폴더에 설치합니다. WSL·시스템 Python·별도 Tesseract·관리자 권한이 필요하지 않은 경로입니다.
 
-현재 Linux에서 **47개 테스트 통과, 실패/건너뜀 0**과 실제 UI smoke test, 데스크톱 실행 smoke test를 확인했습니다. 새 검증에는 모델 체크섬 불일치 시 기존 파일 보존, 한국어/공백 파일 경로의 OCR, UTF-8 출력, Windows AppData 경로 선택, 포트 충돌 처리, 준비 후 브라우저 열기, 기존 서버 재사용을 포함합니다. Windows 배포용 uv/tesserocr wheel을 PyPI에서 직접 받아 SHA256과 번들 DLL 포함 여부도 확인했습니다.
+Linux에서 **47개 테스트 통과, 실패/건너뜀 0**과 실제 UI smoke test, 데스크톱 실행 smoke test를 확인했습니다. 새 검증에는 모델 체크섬 불일치 시 기존 파일 보존, 한국어/공백 파일 경로의 OCR, UTF-8 출력, Windows AppData 경로 선택, 포트 충돌 처리, 준비 후 브라우저 열기, 기존 서버 재사용을 포함합니다. Windows 배포용 uv/tesserocr wheel을 PyPI에서 직접 받아 SHA256과 번들 DLL 포함 여부도 확인했습니다.
 
-**Linux 검증을 Windows 실기 검증으로 표시하지 않습니다.** 현재 실행 머신에는 Windows/PowerShell/Wine이 없어 배치 파일과 Windows DLL은 여기서 실행하지 못했습니다. Windows CI 검증을 추가 진행하며 그 결과를 별도로 기록합니다. 실제 신상마켓의 로그인·상품 20개 검증은 아래와 같이 여전히 미실행입니다.
+**실제 Windows CI 검증도 통과했습니다.** [Windows verification 실행 #7](https://github.com/ikm021212-hash/jo/actions/runs/40199892340), 검증 커밋 `9ad64e6`에서 다음을 확인했습니다. 문서만 수정한 이후 커밋에도 같은 구현이 유지됩니다.
+
+- 실제 `INSTALL-WINDOWS.bat`로 전용 Python 3.12.14, Windows OCR DLL, Chromium, 모델 자동 설치 및 OCR 준비 확인
+- Windows의 **47개 테스트 통과**, 로그인 필요/CAPTCHA의 테스트 HTML 감지 포함
+- Windows Chromium으로 상품 입력, S만 충족 표시, 즐겨찾기/제외/필터, 재접속 데이터 유지, CSV 다운로드, 390px 화면 및 JS 오류 없음
+- 실제 데스크톱 서버 시작, 한국어 데이터 경로, 로컬 준비 확인, 중복 실행 시 기존 서버 재사용
+
+Windows에서 드러난 SQLite 파일 잠금 문제는 각 트랜잭션 뒤 연결을 명시적으로 닫아 해결했습니다. 한국어 OCR 기준 이미지는 OS별 기본 폰트 차이로 입력 자체가 달라지지 않도록 같은 픽셀의 테스트 PNG를 사용합니다. Windows Malgun 폰트로 생성한 별도 표에서는 OCR 인식 실패가 관측되었습니다. OCR이 임의의 상품 표를 정확히 읽는다는 의미가 아니며, 확인하지 않은 OCR을 자동 통과시키지 않는 원칙을 유지합니다.
+
+이 기록은 GitHub의 `windows-latest` 실제 Windows 머신에서의 검증이며 사용자 PC의 개별 설치나 실제 신상마켓 접속 검증을 뜻하지 않습니다. 실제 신상마켓의 로그인·상품 20개 검증은 아래와 같이 여전히 미실행입니다.
 
 아래 39개 기록은 최초 버전 검증 기록이며 Windows 변경 후의 회귀 검증은 위 47개 결과입니다.
 
