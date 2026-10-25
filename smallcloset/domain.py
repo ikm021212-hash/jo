@@ -11,6 +11,17 @@ SITE_HOSTS = {"sinsangmarket.kr", "www.sinsangmarket.kr"}
 SECRET_KEY = re.compile(r"token|session|auth|password|secret|credential|code|ticket|signature|key", re.I)
 
 
+def classify_category(name, chosen):
+    if re.search(r"[가카]디건|후드[\s_·-]*집업", name or ""):
+        return "상의"
+    return chosen
+
+
+def short_keywords(product):
+    text = str(product.get("name", "")) + "\n" + str(product.get("source_excerpt", ""))
+    return [label for label, pattern in [("숏기장", r"숏\s*기장"), ("크롭", r"크롭")] if re.search(pattern, text)]
+
+
 def safe_url(value: str, *, site_only=True) -> str:
     p = urlsplit(value.strip())
     if p.scheme != "https" or not p.hostname or p.username or p.password:
@@ -60,7 +71,7 @@ def parse_length(raw: str) -> float | None:
 
 
 def evaluate(product: dict, rules: dict) -> dict:
-    category = product.get("category")
+    category = classify_category(product.get("name", ""), product.get("category"))
     if category not in rules:
         return {"status": "review", "reason": "분류를 확인해 주세요.", "matching_options": [], "options": []}
     if product.get("inseparable_set"):
@@ -106,5 +117,8 @@ def evaluate(product: dict, rules: dict) -> dict:
     matching = [o["label"] for o in results if o["status"] == "pass"]
     state = "pass" if matching else "review" if not results or any(o["status"] == "review" for o in results) else "fail"
     reason = ("조건 충족: " + ", ".join(matching)) if matching else "확인 가능한 충족 옵션 없음" if state == "fail" else "총장·가격·재고 등 추가 확인 필요"
+    keywords = short_keywords(product)
+    if state == "review" and keywords and not any(o.get("length_verified") and parse_length(o.get("length_raw", "")) is not None for o in product.get("options", [])):
+        reason = "·".join(keywords) + " 문구로 수집한 후보 · 실제 총장 수치 확인 필요"
     return {"status": state, "reason": reason, "matching_options": matching, "options": results}
 

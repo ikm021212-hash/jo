@@ -5,7 +5,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from .domain import DEFAULT_RULES, evaluate, safe_url
+from .domain import DEFAULT_RULES, evaluate, safe_url, classify_category, short_keywords
 
 
 def now():
@@ -61,6 +61,7 @@ class Store:
 
     def upsert(self, data):
         data = dict(data)
+        data["category"] = classify_category(data.get("name", ""), data.get("category", "미분류"))
         url = safe_url(data.pop("url"))
         stamp = now()
         # Never persist browser cookies, storage state or arbitrary request headers.
@@ -79,6 +80,8 @@ class Store:
         for row in rows:
             item = dict(row)
             item.update(json.loads(item.pop("data")))
+            item["category"] = classify_category(item.get("name", ""), item.get("category", "미분류"))
+            item["keyword_hints"] = short_keywords(item)
             item["decision"] = evaluate(item, rules)
             output.append(item)
         return output
@@ -125,7 +128,7 @@ class Store:
     def csv(self, products):
         stream = io.StringIO(newline="")
         writer = csv.writer(stream)
-        writer.writerow(["판정", "상품명", "상품 링크", "거래처", "상가·층·호수", "분류", "표시 가격·옵션 추가금", "사이즈별 총장", "충족 옵션", "색상·재고", "메모", "수집 시각", "가격·총장 근거", "판정 이유", "배송비·부가세 별도 표기"])
+        writer.writerow(["판정", "상품명", "상품 링크", "거래처", "상가·층·호수", "분류", "표시 가격·옵션 추가금", "사이즈별 총장", "충족 옵션", "색상·재고", "메모", "수집 시각", "가격·총장 근거", "판정 이유", "배송비·부가세 별도 표기", "상품설명 발췌·키워드 근거"])
         status = {"pass": "조건 충족", "review": "확인 필요", "fail": "조건 미충족"}
         for p in products:
             opts = p.get("options", [])
@@ -135,7 +138,7 @@ class Store:
                    "; ".join(p["decision"]["matching_options"]),
                    "; ".join(f"{o.get('color','')}: {o.get('stock','unknown')}" for o in opts), p.get("memo", ""), p["collected_at"],
                    "; ".join(f"{o.get('size','')}: 가격 {o.get('price_evidence','')} / 총장 {o.get('length_evidence','')}" for o in opts),
-                   p["decision"]["reason"], p.get("separate_charges", "")]
+                   p["decision"]["reason"], p.get("separate_charges", ""), p.get("source_excerpt", "")]
             # Excel formula injection: neutralize user/site-controlled cells.
             writer.writerow(["'" + str(v) if str(v).lstrip().startswith(("=", "+", "-", "@", "\t", "\r")) else str(v) for v in row])
         return ("\ufeff" + stream.getvalue()).encode("utf-8")

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "작은옷장 · 현재 상품 가져오기",
+  "version": "0.3.0",
+  "description": "일반 Chrome에서 사용자가 직접 연 신상마켓 상품의 검토용 근거를 로컬 작은옷장으로 보냅니다.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApJ1ITuRF0g9cwBewNm8dBr4PMGnuf4hYZEu2E47kg9gsGsF3S50uDN6Zz5V/y8/erHrKwrW1f+qfDTp7BFlF0aZVQ0AUdPCAd10/bMAnJZSP4fZCiYIWrcJZyQfuT4QJST9es92LgKbjOL6LxRhU1PIKVfoAbI7ZTqfHYkNhGMnr0kq782C7ZkrPZ59XghOZFvdkJWB+3EqC5E3mhRWN8ajjJuaq4+YaDEyAFf0txbrfnVwiTWQbbCHIi1LE5I22Qk8xt2OztrqL3QtmaANiphfzpFxZ7zEhYRmF64n91MoioducvBwKtPBYVTLCnV1LxYXZ7sz9XgXZMLTwBpDd4QIDAQAB",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://sinsangmarket.kr/*",
+    "https://www.sinsangmarket.kr/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "작은옷장으로 현재 상품 가져오기"
+  }
+}

@@ -20,6 +20,21 @@ def product(*options, **overrides):
 
 
 class DecisionTests(unittest.TestCase):
+    def test_cardigans_and_zip_hoodies_use_top_price_limit(self):
+        for name in ['가디건','카디건','후드집업','후드 집업','남성 후드-집업']:
+            with self.subTest(name=name):
+                p=product(option(price=23801,length='68'),name=name,category='아우터')
+                self.assertEqual(evaluate(p,DEFAULT_RULES)['status'],'fail')
+
+    def test_short_keyword_is_candidate_not_verified_length(self):
+        for source in [dict(name='숏기장 가디건'),dict(name='일반 상품',source_excerpt='크롭 디자인'),dict(name='숏 기장 후드 집업')]:
+            with self.subTest(source=source):
+                result=evaluate(product(option(length=''),**source),DEFAULT_RULES)
+                self.assertEqual(result['status'],'review');self.assertEqual(result['matching_options'],[])
+                self.assertIn('후보',result['reason'])
+
+    def test_short_keyword_does_not_override_known_excess(self):
+        self.assertEqual(evaluate(product(option(length='69'),name='크롭 가디건'),DEFAULT_RULES)['status'],'fail')
     def test_inclusive_boundaries_all_categories(self):
         for category, rule in DEFAULT_RULES.items():
             with self.subTest(category=category):
@@ -101,6 +116,10 @@ class TableTests(unittest.TestCase):
     def test_horizontal(self):
         result=table_candidates([self.cells([["SIZE","S","M"],["가슴",60,62],["총장",67,69]])])
         self.assertEqual([(o["size"],o["length_raw"]) for o in result],[("S","67"),("M","69")])
+
+    def test_exact_gijang_header_and_inseam_are_distinct(self):
+        result=table_candidates([self.cells([["사이즈","인심","기장"],["S",65,98]])])
+        self.assertEqual(result[0]['length_raw'],'98')
 
     def test_merged_or_duplicate_headers_refused(self):
         rows=self.cells([["SIZE","총장"],["S",67]]);rows[1][1]["span"]=2

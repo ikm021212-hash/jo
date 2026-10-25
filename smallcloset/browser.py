@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from playwright.async_api import async_playwright
 from .domain import safe_url, SITE_HOSTS
+from .companion import challenge_reason
 
 
 class Paused(Exception):
@@ -79,6 +80,14 @@ class Browser:
             if response and response.status in {401, 403, 429}:
                 raise Paused(f"사이트 또는 네트워크에서 HTTP {response.status} 응답. 접근 제한을 우회하지 않고 중지했습니다.")
             safe_url(self.page.url)
+            try:
+                text = await self.page.locator("body").inner_text(timeout=3000)
+            except Exception:
+                text = ""
+            reason = challenge_reason(text)
+            if reason:
+                self.state = reason
+                raise Paused(reason)
         except Paused:
             raise
         except ValueError:
@@ -93,8 +102,9 @@ class Browser:
         if not self.page or self.page.is_closed():
             raise Paused("먼저 브라우저를 열고 로그인하세요.")
         text = await self.page.locator("body").inner_text(timeout=10000)
-        if any(s in text.lower() for s in ["captcha", "로봇이 아닙니다", "비정상적인 접근", "접근이 제한", "access denied", "too many requests", "verify you are human"]):
-            raise Paused("CAPTCHA 또는 접근 제한 감지. 자동 수집을 일시정지했습니다.")
+        reason = challenge_reason(text)
+        if reason:
+            raise Paused(reason)
         passwords = self.page.locator('input[type="password"]')
         if any([await passwords.nth(i).is_visible() for i in range(await passwords.count())]):
             raise Paused("로그인이 필요합니다. 같은 브라우저에서 직접 로그인한 뒤 재개하세요.")
@@ -136,7 +146,7 @@ class Browser:
         tables = await self.page.locator("table:visible").evaluate_all("els => els.slice(0,20).map(t => [...t.rows].slice(0,60).map(r => [...r.cells].map(c => ({text:c.innerText.trim(), span:c.colSpan, rows:c.rowSpan}))))")
         options = table_candidates(tables)
         return {"url": safe_url(self.page.url), "name": title or "상품명 확인 필요",
-                "supplier": "", "location": "", "gender": "미확인", "category": scope.get("category", "상의"),
+                "supplier": "", "location": "", "gender": "남성" if scope.get("men_category_confirmed") else "미확인", "category": scope.get("category", "상의"),
                 "image_url": "", "options": options, "capture_note": "실제 페이지 열기 완료. " + ("실제 제품설명 탭을 열었습니다. " if opened_description else "제품설명 탭을 자동으로 식별하지 못했습니다. ") + "상품명은 페이지 제목의 임시값입니다. HTML 표에서 찾은 총장도 검토용 후보이며, 가격·총장·옵션·남성 여부를 근거와 함께 확인하세요.",
                 "source_type": "browser_draft", "inseparable_set": False, "separate_charges": ""}
 
@@ -171,14 +181,14 @@ def table_candidates(tables):
         rows = [[c["text"] for c in row] for row in table]
         headers = [header(c) for c in rows[0]]
         size_cols = [i for i, h in enumerate(headers) if h in {"사이즈", "size"}]
-        length_cols = [i for i, h in enumerate(headers) if h in {"총장", "총기장"}]
+        length_cols = [i for i, h in enumerate(headers) if h in {"총장", "총기장", "기장"}]
         candidates = []
         if len(size_cols) == len(length_cols) == 1:
             for row in rows[1:]:
                 if len(row) == len(headers):
                     candidates.append((row[size_cols[0]], row[length_cols[0]]))
         elif headers and headers[0] in {"사이즈", "size"}:
-            length_rows = [r for r in rows[1:] if r and header(r[0]) in {"총장", "총기장"}]
+            length_rows = [r for r in rows[1:] if r and header(r[0]) in {"총장", "총기장", "기장"}]
             if len(length_rows) == 1 and len(length_rows[0]) == len(headers):
                 candidates = list(zip(rows[0][1:], length_rows[0][1:]))
         for size, raw in candidates:

@@ -50,6 +50,7 @@ jobs:
         run: |
           if (Test-Path -LiteralPath $env:SM_TEST_LOG) {
             $details = (Get-Content -LiteralPath $env:SM_TEST_LOG -Encoding UTF8 -Tail 100) -join "`n"
+            if ($details.Length -gt 3500) { $details = $details.Substring($details.Length - 3500) }
             $escaped = $details.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
             if ($env:SM_VERIFY_STATUS -eq 'success') {
               Write-Output "::notice title=Windows verification passed::$escaped"

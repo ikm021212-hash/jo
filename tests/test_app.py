@@ -95,7 +95,7 @@ class APITests(unittest.TestCase):
 
     def test_job_default_limit_and_dedup(self):
         urls=[f'https://www.sinsangmarket.kr/test-only-{i}' for i in range(25)]
-        response=self.client.post('/api/jobs',json={'urls':urls+[urls[0]]},headers=HEADERS)
+        response=self.client.post('/api/jobs',json={'urls':urls+[urls[0]],'men_category_confirmed':True},headers=HEADERS)
         self.assertEqual(response.status_code,200)
         self.assertEqual(self.app.state.store.jobs()[0]['total'],20)
 

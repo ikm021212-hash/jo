@@ -103,6 +103,7 @@ try {
             Invoke-Checked $pythonExe @((Join-Path $PSScriptRoot 'test.py'))
             Invoke-Checked $pythonExe @((Join-Path $PSScriptRoot 'smoke_ui.py'))
             Invoke-Checked $pythonExe @((Join-Path $PSScriptRoot 'smoke_desktop.py'))
+            Invoke-Checked $pythonExe @((Join-Path $PSScriptRoot 'smoke_companion.py'))
         } else {
             Write-Host 'Opening SmallCloset in your browser. Keep this window open; Ctrl+C stops the program.'
             Invoke-Checked $pythonExe @('-m', 'smallcloset.desktop')

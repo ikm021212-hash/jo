@@ -10,7 +10,9 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from .browser import Browser, Collector, Paused
+from starlette.middleware.cors import CORSMiddleware
+from .browser import Browser, Collector, Paused, table_candidates
+from .companion import EXTENSION_DIRECTORY, EXTENSION_ID, EXTENSION_ORIGIN, challenge_reason
 from .domain import DEFAULT_RULES, safe_url
 from .ocr import read_image
 from .store import Store
@@ -46,7 +48,8 @@ class Product(Model):
     separate_charges: str = Field(default="", max_length=500)
     options: list[Option] = Field(default_factory=list, max_length=200)
     capture_note: str = Field(default="", max_length=2000)
-    source_type: Literal["manual", "browser_draft"] = "manual"
+    source_excerpt: str = Field(default="", max_length=1500)
+    source_type: Literal["manual", "browser_draft", "chrome_companion"] = "manual"
 
     @field_validator("url")
     @classmethod
@@ -88,6 +91,7 @@ class Job(Model):
     limit: int = Field(default=20, ge=1, le=200)
     category: Literal["아우터", "상의", "바지", "미분류"] = "상의"
     keyword: str = Field(default="", max_length=200)
+    men_category_confirmed: Literal[True]
 
 
 class Navigate(Model):
@@ -111,6 +115,37 @@ class Crop(Model):
     height: float = Field(ge=20, le=850)
 
 
+class CapturedCell(Model):
+    text: str = Field(max_length=500)
+    span: int = Field(ge=1, le=100)
+    rows: int = Field(ge=1, le=100)
+
+
+class CompanionProduct(Model):
+    url: str = Field(max_length=2048)
+    title: str = Field(default="", max_length=300)
+    category: Literal["미분류", "아우터", "상의", "바지"] = "미분류"
+    selection: str = Field(default="", max_length=1500)
+    confirmed_product: Literal[True]
+    men_category_confirmed: Literal[True]
+    tables: list[list[list[CapturedCell]]] = Field(default_factory=list, max_length=20)
+
+    @field_validator("url")
+    @classmethod
+    def url_check(cls, value):
+        return safe_url(value)
+
+    @field_validator("tables")
+    @classmethod
+    def limit_tables(cls, value):
+        if any(len(table) > 60 or any(len(row) > 20 for row in table) for table in value):
+            raise ValueError("표의 행·열이 너무 많습니다. 필요한 사이즈표만 직접 확인해 주세요.")
+        cells = [cell for table in value for row in table for cell in row]
+        if len(cells) > 2000 or sum(len(cell.text) for cell in cells) > 100000:
+            raise ValueError("표 데이터가 너무 큽니다. 필요한 사이즈표만 직접 확인해 주세요.")
+        return value
+
+
 def create_app(directory=None, browser_override=None):
     store = Store(directory or data_dir())
     browser = browser_override or Browser(store.directory)
@@ -130,10 +165,13 @@ def create_app(directory=None, browser_override=None):
     app = FastAPI(title="작은옷장 선별실", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store, app.state.browser, app.state.collector = store, browser, collector
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
+    app.add_middleware(CORSMiddleware, allow_origins=[EXTENSION_ORIGIN], allow_methods=["GET", "POST"],
+                       allow_headers=["Content-Type", "X-Local-Client"], allow_credentials=False)
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
-        if request.method not in {"GET", "HEAD"} and request.headers.get("x-local-client") != "smallcloset":
+        extension_preflight = request.method == "OPTIONS" and request.headers.get("origin") == EXTENSION_ORIGIN
+        if request.method not in {"GET", "HEAD"} and not extension_preflight and request.headers.get("x-local-client") != "smallcloset":
             return Response("local client required", status_code=403)
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
@@ -166,6 +204,31 @@ def create_app(directory=None, browser_override=None):
     @app.get("/api/health")
     async def health():
         return {"app": "smallcloset", "ready": True}
+
+    @app.get("/api/companion/info")
+    async def companion_info():
+        return {"extension_id": EXTENSION_ID, "folder": str(EXTENSION_DIRECTORY), "installed_source": EXTENSION_DIRECTORY.is_dir()}
+
+    @app.post("/api/companion/open-folder")
+    async def companion_folder():
+        if os.name != "nt":
+            raise HTTPException(409, "이 PC에서 표시된 chrome-extension 폴더 경로를 직접 여세요.")
+        os.startfile(str(EXTENSION_DIRECTORY))
+        return {"ok": True}
+
+    @app.post("/api/companion/products")
+    async def companion_product(body: CompanionProduct, request: Request):
+        if request.headers.get("origin") not in {None, EXTENSION_ORIGIN}:
+            raise HTTPException(403, "등록된 Chrome 확장프로그램에서만 가져올 수 있습니다.")
+        reason = challenge_reason(body.title + "\n" + body.selection)
+        if reason:
+            raise HTTPException(409, reason)
+        tables = [[[cell.model_dump() for cell in row] for row in table] for table in body.tables]
+        data = Product(url=body.url, name=body.title or "상품명 확인 필요", category=body.category, gender="남성",
+                       options=table_candidates(tables), source_type="chrome_companion",
+                       source_excerpt=body.selection,
+                       capture_note="일반 Chrome에서 남성의류 카테고리로부터 이동한 상품임을 사용자가 확인했습니다. 상품명은 페이지 제목의 임시값이며 가격·총장·재고 확인이 필요합니다.\n선택한 원문: " + body.selection)
+        return {"id": store.upsert(data.model_dump()), "status": "review"}
 
     @app.put("/api/rules")
     async def rules(body: Rules):
@@ -212,7 +275,7 @@ def create_app(directory=None, browser_override=None):
 
     @app.post("/api/jobs")
     async def create_job(body: Job):
-        job_id = store.create_job(body.urls, body.limit, {"category": body.category, "keyword": body.keyword})
+        job_id = store.create_job(body.urls, body.limit, {"category": body.category, "keyword": body.keyword, "men_category_confirmed": True})
         return {"id": job_id}
 
     @app.post("/api/jobs/{job_id}/resume")
